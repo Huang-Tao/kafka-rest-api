@@ -46,7 +46,7 @@ DELETE
 * The _namespace_ is required and is only accepted if it is in the configured white-list.
 * The _id_ is required although if you provide it currently it needs to be a valid UUID unless id validation is disabled on the _namespace_.
 
-Here's the list of HTTP response codes that Bagheera could send back:
+Here's the list of HTTP response codes that Kafka REST API could send back:
 
 * 201 Created - Returns the id submitted/generated. (default)
 * 403 Forbidden - Violated access restrictions. Most likely because of the method used.
@@ -63,8 +63,8 @@ Here's the list of HTTP response codes that Bagheera could send back:
 ### Example Kafka Producer Configuration (conf/kafka.producer.properties) ###
     # comma delimited list of ZK servers
     zk.connect=127.0.0.1:2181
-    # use bagheera message encoder
-    serializer.class=com.mozilla.bagheera.serializer.BagheeraEncoder
+    # use message encoder
+    serializer.class=org.apache.kafka.rest.serializer.KafkaRestApiEncoder
     # asynchronous producer
     producer.type=async
     # compression.code (0=uncompressed,1=gzip,2=snappy)
@@ -72,9 +72,3 @@ Here's the list of HTTP response codes that Bagheera could send back:
     # batch size (one of many knobs to turn in kafka depending on expected data size and request rate)
     batch.size=100
 
-
-### License ###
-All aspects of this software are distributed under Apache Software License 2.0. See LICENSE file for full license text.
-
-### Contributors ###
-* Harsha Chintalapani
