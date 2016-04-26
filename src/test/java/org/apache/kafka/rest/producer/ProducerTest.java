@@ -23,11 +23,12 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.Properties;
-import java.util.UUID;
+import java.net.InetSocketAddress;
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
+import kafka.admin.AdminUtils;
+import kafka.api.ApiVersion;
 import kafka.api.FetchRequest;
 import kafka.api.FetchRequestBuilder;
 import kafka.javaapi.consumer.SimpleConsumer;
@@ -42,6 +43,8 @@ import kafka.javaapi.FetchResponse;
 
 import kafka.utils.SystemTime$;
 import kafka.utils.Time;
+import org.apache.zookeeper.server.NIOServerCnxnFactory;
+import org.apache.zookeeper.server.ZooKeeperServer;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -58,13 +61,27 @@ public class ProducerTest {
     public TemporaryFolder folder = new TemporaryFolder();
 
     private String KAFKA_DIR;
-    private static final int BATCH_SIZE = 10;
+    private static final int BATCH_SIZE = 1;
     private static final int MAX_MESSAGE_SIZE = 500;
     private static final int GOOD_MESSAGE_SIZE = 100;
     private static final int BAD_MESSAGE_SIZE = 1000;
     private static final int KAFKA_BROKER_ID = 0;
     private static final int KAFKA_BROKER_PORT = 9090;
     private static final String KAFKA_TOPIC = "test";
+    private static final File tmpDir = new File(System.getProperty("java.io.tmpdir"));
+    private static ZooKeeperServer zookeeper;
+
+    static {
+        try {
+            zookeeper = new ZooKeeperServer(tmpDir, tmpDir, 500);
+            NIOServerCnxnFactory factory = new NIOServerCnxnFactory();
+            InetSocketAddress addr = new InetSocketAddress("127.0.0.1", ThreadLocalRandom.current().nextInt(1025, 5001));
+            factory.configure(addr, 0);
+            factory.startup(zookeeper);
+        } catch (IOException|InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private int messageNumber = 0;
 
@@ -86,6 +103,7 @@ public class ProducerTest {
         props.setProperty("port", String.valueOf(KAFKA_BROKER_PORT));
         props.setProperty("brokerid", String.valueOf(KAFKA_BROKER_ID));
         props.setProperty("log.dir", KAFKA_DIR);
+        props.setProperty("zookeeper.connect", "localhost:" + zookeeper.getClientPort());
         // flush every message.
         props.setProperty("log.flush.interval", "1");
 
@@ -93,7 +111,12 @@ public class ProducerTest {
         props.setProperty("log.default.flush.scheduler.interval.ms", "1");
 
         server = new KafkaServer(KafkaConfig.fromProps(props), SystemTime$.MODULE$, null);
+        KafkaConfig kafkaConfig = KafkaConfig.fromProps(props);
+
         server.startup();
+        //server.zkUtils().registerBrokerInZk(kafkaConfig.brokerId(), "localhost", kafkaConfig.port(), kafkaConfig.advertisedListeners(), -1);
+        //AdminUtils.createTopic(server.zkUtils(), KAFKA_TOPIC, 1 ,1 , new Properties());
+
     }
 
     private void stopServer() {
@@ -176,6 +199,7 @@ public class ProducerTest {
 
     private void produceData(boolean includeBadRecord) throws InterruptedException {
         Properties props = getProperties();
+        props.setProperty("producerType","sync");
         kafka.javaapi.producer.Producer<String,RestApiMessage> producer = new kafka.javaapi.producer.Producer<String,RestApiMessage>(new ProducerConfig(props));
         RestApiMessage msg = getMessage(GOOD_MESSAGE_SIZE);
 
@@ -193,7 +217,7 @@ public class ProducerTest {
         producer.close();
 
         // Wait for flush
-        Thread.sleep(100);
+        Thread.sleep(1000);
     }
 
     private KeyedMessage<String,RestApiMessage> getProducerData(RestApiMessage msg) {
@@ -225,6 +249,7 @@ public class ProducerTest {
         props.setProperty("max.message.size", String.valueOf(MAX_MESSAGE_SIZE));
         props.setProperty("broker.list",      KAFKA_BROKER_ID + ":localhost:" + KAFKA_BROKER_PORT);
         props.setProperty("serializer.class", "org.apache.kafka.rest.serializer.KafkaRestApiEncoder");
+        props.setProperty("metadata.broker.list","localhost:"+KAFKA_BROKER_PORT);
 
         return props;
     }

@@ -16,6 +16,7 @@
  */
 package org.apache.kafka.rest.serializer;
 
+import kafka.utils.VerifiableProperties;
 import org.apache.kafka.rest.RestApiProto;
 import org.apache.kafka.rest.RestApiProto.RestApiMessage;
 
@@ -32,4 +33,6 @@ public class KafkaRestApiEncoder implements Encoder<RestApiMessage> {
         return bmsg.toByteArray();
     }
 
+    public KafkaRestApiEncoder(VerifiableProperties properties) {
+    }
 }
